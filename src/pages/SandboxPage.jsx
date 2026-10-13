@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { Link } from "react-router-dom"
-import { Brand, EyeToggle, Wave } from "../components/ui.jsx"
+import { Brand, EyeToggle, Wave, ConsoleEntry } from "../components/ui.jsx"
 import { idleUnits, flows } from "../data/db.js"
 import { useCockpit } from "../lib/dataset.js"
 import { WORLD, w2s, drawSandbox, drawMinimap } from "../lib/sandbox-map.js"
@@ -160,6 +160,7 @@ export default function SandboxPage() {
             <span className="stat-chip">缺口（正数）<b className={amountVisible ? "amber" : ""}>{amountVisible ? fmtMoney(metrics.gap) : "¥•••••"}</b></span>
             <span className="stat-chip">需介入 <b className="red">{amountVisible ? metrics.needIntervention : "•••"}</b></span>
           </div>
+          <ConsoleEntry compact />
           <EyeToggle visible={amountVisible} onToggle={() => setAmountVisible((v) => !v)} />
         </div>
       </header>

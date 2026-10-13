@@ -398,6 +398,57 @@ body.home .src-badge.is-demo { color: #E9A94F; border-color: rgba(233, 169, 79, 
 body.home .src-badge.is-demo i { background: #E9A94F; }
 
 /* ============================================================
+   驾驶舱 → 控制台 入口（打通前后端操作衔接）
+   ============================================================ */
+.console-entry {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  padding: 6px 12px; border-radius: 9px; cursor: pointer; white-space: nowrap;
+  font-family: var(--sans, inherit); font-size: 12.5px; font-weight: 500; letter-spacing: 0.02em;
+  color: var(--klein); background: rgba(var(--klein-rgb, 27, 61, 228), 0.07);
+  border: 1px solid rgba(var(--klein-rgb, 27, 61, 228), 0.28);
+  transition: all 0.22s var(--ease, ease);
+}
+.console-entry svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.console-entry:hover {
+  color: #fff; background: var(--klein); border-color: var(--klein);
+  transform: translateY(-1px); box-shadow: 0 8px 20px rgba(var(--klein-rgb, 27, 61, 228), 0.28);
+}
+.console-entry.is-compact { padding: 5px 10px; font-size: 12px; }
+
+/* 深色主题（晨报首页 / 全域沙盘） */
+body.home .console-entry,
+body.sandbox-page .console-entry {
+  color: var(--cyan, #9FE8EE); background: rgba(159, 232, 238, 0.08);
+  border-color: rgba(159, 232, 238, 0.34);
+}
+body.home .console-entry:hover,
+body.sandbox-page .console-entry:hover {
+  color: #04121A; background: var(--cyan, #9FE8EE); border-color: var(--cyan, #9FE8EE);
+  box-shadow: 0 8px 22px rgba(159, 232, 238, 0.3);
+}
+
+/* 控制台侧栏「返回驾驶舱」 */
+.back-cockpit {
+  display: flex; align-items: center; gap: 8px; width: calc(100% - 24px); margin: 4px 12px 6px;
+  padding: 9px 12px; border-radius: 10px; cursor: pointer;
+  font-size: 12.5px; font-weight: 500; color: var(--klein);
+  background: rgba(var(--klein-rgb, 27, 61, 228), 0.07);
+  border: 1px solid rgba(var(--klein-rgb, 27, 61, 228), 0.24);
+  transition: all 0.2s var(--ease, ease);
+}
+.back-cockpit svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.back-cockpit:hover { color: #fff; background: var(--klein); border-color: var(--klein); transform: translateX(2px); }
+
+/* 控制台页头「返回驾驶舱」按钮 */
+.c-btn.ghost { background: transparent; }
+.c-btn.back { color: var(--klein); border-color: rgba(var(--klein-rgb, 27, 61, 228), 0.26); background: rgba(var(--klein-rgb, 27, 61, 228), 0.05); }
+.c-btn.back:hover { color: #fff; background: var(--klein); border-color: var(--klein); }
+@media (max-width: 640px) {
+  .c-btn.back { padding: 6px 10px; font-size: 12px; }
+  .console-head .acts { flex-wrap: wrap; row-gap: 8px; }
+}
+
+/* ============================================================
    响应式：平板（≤1080px）
    ============================================================ */
 @media (max-width: 1080px) {

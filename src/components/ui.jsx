@@ -44,6 +44,23 @@ export function Wave({ seed = 1, dark = true, className = "" }) {
   return <canvas ref={ref} className={className} />
 }
 
+// ---------- 控制台入口（驾驶舱各页统一使用，保证两视图互通） ----------
+export function ConsoleEntry({ compact = false, className = "" }) {
+  const nav = useNavigate()
+  return (
+    <button type="button" className={`console-entry ${compact ? "is-compact" : ""} ${className}`}
+      title="进入后端控制台（用户权限 / 数据管理 / 日志 / 监控 / 配置）"
+      onClick={() => nav("/console")}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="6" rx="1.6" />
+        <rect x="3" y="14" width="18" height="6" rx="1.6" />
+        <path d="M7 7h.01M7 17h.01" />
+      </svg>
+      {compact ? "控制台" : "后端控制台"}
+    </button>
+  )
+}
+
 // ---------- 数据来源徽标 ----------
 // api = 数据来自后端（与控制台同一份数据）；static = 后端不可用，已降级为本地演示数据
 export function SourceBadge({ source, generatedAt = null, className = "" }) {
@@ -98,7 +115,10 @@ export function GuiHeader({ crumb = [], right = null, accent = null }) {
             </span>
           ))}
         </nav>
-        <div className="right">{right}</div>
+        <div className="right">
+          {right}
+          <ConsoleEntry compact />
+        </div>
       </header>
       {accent && <div className="accent-bar" style={{ "--dept": accent }} />}
     </>

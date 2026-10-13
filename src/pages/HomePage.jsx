@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Brand, EyeToggle, Wave, SourceBadge } from "../components/ui.jsx"
+import { Brand, EyeToggle, Wave, SourceBadge, ConsoleEntry } from "../components/ui.jsx"
 import { deptHue, agents } from "../data/db.js"
 import { useCockpit } from "../lib/dataset.js"
 import { fmtMoney, clockNow } from "../lib/util.js"
@@ -72,8 +72,10 @@ export default function HomePage() {
               <span className="vd" /> 早报
             </button>
             <button onClick={() => nav("/sandbox")}>沙盘</button>
+            <button onClick={() => nav("/customers")}>客户</button>
             <button className={view === "flow" ? "on" : ""} onClick={() => setView("flow")}>链路</button>
           </div>
+          <ConsoleEntry compact />
           <EyeToggle visible={amountVisible} onToggle={() => setAmountVisible((v) => !v)} />
         </div>
       </header>

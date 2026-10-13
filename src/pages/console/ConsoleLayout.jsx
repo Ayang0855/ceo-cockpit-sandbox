@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { NavLink, useNavigate, Outlet } from "react-router-dom"
+import { NavLink, Link, useNavigate, Outlet } from "react-router-dom"
 import { api, clearAuth, getToken, getUser, isApiAvailable, probeApi, setUser } from "../../lib/api.js"
 import { Field } from "./common.jsx"
 
@@ -107,6 +107,14 @@ export default function ConsoleLayout() {
               <div className="s">COMPANY OS CONSOLE</div>
             </span>
           </div>
+          <button type="button" className="back-cockpit" onClick={() => nav("/")}
+            title="返回 CEO 驾驶舱（业务视图：晨报 / 全域沙盘 / 部门战情 / 客户经营 / 主管报告）">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" />
+              <path d="M9 12h10" />
+            </svg>
+            返回驾驶舱
+          </button>
           {MENU.map((g) => (
             <div key={g.group}>
               <div className="side-group">{g.group}</div>
@@ -221,7 +229,15 @@ export function ConsoleHead({ kicker, title, sub, children }) {
         <h1>{title}</h1>
         {sub && <div className="sub">{sub}</div>}
       </div>
-      <div className="acts">{children}</div>
+      <div className="acts">
+        {children}
+        <Link className="c-btn ghost back" to="/" title="返回 CEO 驾驶舱（业务视图）">
+          <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: 14, height: 14, marginRight: 4, verticalAlign: -2 }}>
+            <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          返回驾驶舱
+        </Link>
+      </div>
     </header>
   )
 }

@@ -28,7 +28,6 @@ export default function ConsoleHome() {
       <ConsoleHead kicker="CONSOLE · OVERVIEW" title={`你好，${me?.user?.displayName || "管理员"}`}
         sub="后端服务的运行态、业务数据量与最近操作的统一入口。">
         <button className="c-btn" onClick={() => { health.reload(); overview.reload(); summary.reload() }}>刷新</button>
-        <Link className="c-btn" to="/">返回驾驶舱</Link>
       </ConsoleHead>
 
       <ErrorNote error={overview.error || health.error} onRetry={() => { overview.reload(); health.reload() }} />
