@@ -5,3 +5,6 @@ shots
 .DS_Store
 *.log
 .vite
+
+# 运行时数据（SQLite，含审计日志与业务数据）
+server/data/
