@@ -195,3 +195,42 @@ if (remoteUrl !== cleanUrl) {
 }
 
 console.log(`\n[push:github] 推送完成：https://github.com/${owner}/${repo}`)
+
+// ---------- 6. 可选：启用 GitHub Pages 并触发部署（--pages） ----------
+if (argv.includes("--pages")) {
+  const base = `https://api.github.com/repos/${owner}/${repo}`
+  console.log("\n[push:github] 检查 GitHub Pages 配置 …")
+  const pages = apiCall(`${base}/pages`, { headers: authHeaders })
+
+  if (pages?.html_url || pages?.build_type) {
+    console.log(`[push:github] Pages 已启用（build_type=${pages.build_type}）：${pages.html_url || ""}`)
+  } else if (pages?.message === "Not Found") {
+    console.log("[push:github] Pages 未启用，正在启用（source=GitHub Actions）…")
+    const enabled = apiCall(`${base}/pages`, {
+      method: "POST", headers: authHeaders, json: { build_type: "workflow" },
+    })
+    if (enabled?.build_type) {
+      console.log(`[push:github] Pages 已启用：https://${owner.toLowerCase()}.github.io/${repo}/`)
+    } else {
+      console.error(`[push:github] 启用 Pages 失败：${enabled?.message || JSON.stringify(enabled)}`)
+    }
+  } else {
+    console.error(`[push:github] 查询 Pages 失败：${pages?.message || JSON.stringify(pages)}`)
+  }
+
+  // 触发一次部署（优先复用已有工作流，回退到 workflow_dispatch）
+  console.log("[push:github] 触发 Pages 部署工作流 …")
+  const wf = apiCall(`${base}/actions/workflows`, { headers: authHeaders })
+  const deployWf = wf?.workflows?.find((w) => /deploy/i.test(w.path || "") || /deploy/i.test(w.name || ""))
+  if (deployWf?.id) {
+    const dispatched = apiCall(`${base}/actions/workflows/${deployWf.id}/dispatches`, {
+      method: "POST", headers: authHeaders, json: { ref: branch },
+    })
+    console.log(dispatched === null || dispatched?.message
+      ? `[push:github] 触发返回：${dispatched?.message || "已提交"}`
+      : "[push:github] 部署工作流已触发，约 1 分钟后可在仓库 Actions 页查看进度")
+    console.log(`[push:github] 进度：https://github.com/${owner}/${repo}/actions`)
+  } else {
+    console.log("[push:github] 未找到部署工作流，跳过触发（仓库内需存在 .github/workflows/deploy.yml）")
+  }
+}

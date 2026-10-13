@@ -18,7 +18,8 @@
     "db:check": "node --no-warnings server/scripts/db-check.mjs",
     "db:reset": "node --no-warnings server/scripts/db-reset.mjs",
     "prepare:deploy": "node --no-warnings server/scripts/prepare-deploy.mjs",
-    "push:github": "node --no-warnings server/scripts/push-github.mjs"
+    "push:github": "node --no-warnings server/scripts/push-github.mjs",
+    "push:github:pages": "node --no-warnings server/scripts/push-github.mjs --pages"
   },
   "keywords": [
     "dashboard",
