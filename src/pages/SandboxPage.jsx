@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { Link } from "react-router-dom"
 import { Brand, EyeToggle, Wave } from "../components/ui.jsx"
-import { sandboxUnits, idleUnits, flows } from "../data/db.js"
+import { idleUnits, flows } from "../data/db.js"
+import { useCockpit } from "../lib/dataset.js"
 import { WORLD, w2s, drawSandbox, drawMinimap } from "../lib/sandbox-map.js"
-import { clockNow } from "../lib/util.js"
+import { clockNow, fmtMoney } from "../lib/util.js"
 
 const LEGEND = [
   { kind: "lead", label: "线索流", color: "#7E63BC" },
@@ -25,6 +26,17 @@ export default function SandboxPage() {
   const [tip, setTip] = useState(null)
   const [sync, setSync] = useState(clockNow())
 
+  // —— 沙盘单位与经营数字来自后端聚合接口 ——
+  const { data } = useCockpit()
+  const sandboxUnits = data?.units ?? []
+  const metrics = data?.metrics ?? { cashActual: 0, cashTarget: 0, gap: 0, completionRate: 0, needIntervention: 0 }
+  const todayFollowCount = (() => {
+    const d = new Date()
+    const p = (n) => String(n).padStart(2, "0")
+    const today = `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`
+    return (data?.customers ?? []).filter((c) => String(c.nextFollow || "").startsWith(today)).length
+  })()
+
   useEffect(() => {
     const t = setInterval(() => setSync(clockNow()), 1000)
     return () => clearInterval(t)
@@ -33,6 +45,7 @@ export default function SandboxPage() {
   // 主渲染循环
   useEffect(() => {
     const canvas = mapRef.current
+    if (!canvas) return
     const ctx = canvas.getContext("2d")
     let raf, alive = true
     const resize = () => {
@@ -50,7 +63,7 @@ export default function SandboxPage() {
     }
     raf = requestAnimationFrame(loop)
     return () => { alive = false; cancelAnimationFrame(raf); window.removeEventListener("resize", resize) }
-  }, [selected, hover])
+  }, [selected, hover, sandboxUnits])
 
   // 小地图
   useEffect(() => {
@@ -59,7 +72,7 @@ export default function SandboxPage() {
     const t = setInterval(paint, 200)
     paint()
     return () => { alive = false; clearInterval(t) }
-  }, [])
+  }, [sandboxUnits])
 
   const syncCam = useCallback(() => setCamV({ ...camRef.current }), [])
 
@@ -123,6 +136,8 @@ export default function SandboxPage() {
   const vw = window.innerWidth, vh = window.innerHeight
   const sel = sandboxUnits.find((u) => u.unitId === selected)
   const selUnit = sel && flows.filter((f) => f.from === sel.unitId || f.to === sel.unitId)
+  // 单位 → 部门映射：沙盘只带部门名，这里按名字回到后端部门记录拿 id 与配色
+  const deptOf = (name) => (data?.departments ?? []).find((d) => d.name === name) || null
 
   return (
     <div className="sandbox-root">
@@ -141,9 +156,9 @@ export default function SandboxPage() {
         </nav>
         <div className="sb-right">
           <div className="stat-chips">
-            <span className="stat-chip">今日跟进客户 <b>2</b></span>
-            <span className="stat-chip">缺口（正数）<b className={amountVisible ? "amber" : ""}>{amountVisible ? "¥861,060.00" : "¥•••••"}</b></span>
-            <span className="stat-chip">需介入 <b className="red">{amountVisible ? "158" : "•••"}</b></span>
+            <span className="stat-chip">今日跟进客户 <b>{todayFollowCount}</b></span>
+            <span className="stat-chip">缺口（正数）<b className={amountVisible ? "amber" : ""}>{amountVisible ? fmtMoney(metrics.gap) : "¥•••••"}</b></span>
+            <span className="stat-chip">需介入 <b className="red">{amountVisible ? metrics.needIntervention : "•••"}</b></span>
           </div>
           <EyeToggle visible={amountVisible} onToggle={() => setAmountVisible((v) => !v)} />
         </div>
@@ -173,14 +188,14 @@ export default function SandboxPage() {
             <span className="code">{u.online ? (u.mcp ? "已接入 MCP" : "经营数据可查看") : "未接入 MCP"}</span>
             <span className="big">{u.name}</span>
             {isCore ? (
-              <span className="row"><span>入账</span><b className={amountVisible ? "" : "off"}>{amountVisible ? "¥15,960.00" : "¥•••••"}</b></span>
+              <span className="row"><span>{u.stats[0]?.[0] ?? "入账"}</span><b className={amountVisible ? "" : "off"}>{amountVisible ? (u.stats[0]?.[1] ?? "—") : "¥•••••"}</b></span>
             ) : u.online ? (
               <span className="row">
-                <span>+{u.stats[0][1]}{u.stats[0][0].slice(-2)}</span>
-                <span>{u.stats[1][0]} <b>{amountVisible ? u.stats[1][1] : "•••"}</b></span>
+                <span>{u.stats[0] ? `${u.stats[0][0]} ${u.stats[0][1]}` : "—"}</span>
+                <span>{u.stats[1]?.[0]} <b>{amountVisible ? u.stats[1]?.[1] : "•••"}</b></span>
               </span>
             ) : (
-              <span className="row"><span className="off">{u.stats[0][1]} 人 · 未接入 MCP</span></span>
+              <span className="row"><span className="off">{u.stats[0]?.[1] ?? "—"} 人 · 未接入 MCP</span></span>
             )}
           </div>
         )
@@ -213,8 +228,12 @@ export default function SandboxPage() {
                 ))}
               </div>
               <div className="wf-cap"><span>近期动作波形</span><span className="cnt">REALTIME</span></div>
-              <Wave seed={sel.unitId.length + sel.x * 10} dark={false} className="wf" />
-              <Link className="btn-primary" to={`/departments/200`}>进入详情</Link>
+              <Wave seed={sel.unitId.length + Math.round(sel.x * 10)} dark={false} className="wf" />
+              {deptOf(sel.dept) ? (
+                <Link className="btn-primary" to={`/departments/${deptOf(sel.dept).departmentId}`}>进入详情</Link>
+              ) : (
+                <Link className="btn-primary" to="/customers">进入客户经营</Link>
+              )}
             </>
           ) : (
             <p className="offline-hint">该单位未接入 MCP，数据流未打通。需完成数据同步后方可点亮经营视图。</p>

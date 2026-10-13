@@ -336,3 +336,29 @@ body.console-page {
 }
 .c-savebar b { color: var(--amber); }
 
+
+/* ============================================================
+   响应式：手机（≤640px）
+   —— 侧栏改为可横滑的导航条，避免换行占满首屏
+   ============================================================ */
+@media (max-width: 640px) {
+  .console-side { padding: 10px 12px; }
+  .side-nav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; scrollbar-width: none; }
+  .side-nav::-webkit-scrollbar { display: none; }
+  .side-nav a { flex: none; padding: 8px 12px; white-space: nowrap; }
+  .side-nav a .lock { display: none; }
+  .console-main { padding: 14px 14px 64px; }
+  .console-head h1 { font-size: 20px; }
+  .console-head .acts { flex-wrap: wrap; }
+  .c-panel .c-body { padding: 14px 14px; }
+  .c-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .c-table { min-width: 640px; }
+  .c-row2 { grid-template-columns: 1fr; }
+  .c-pager { flex-wrap: wrap; gap: 8px; }
+  .c-feed .f-item { grid-template-columns: 1fr; gap: 3px; }
+  .c-barlist .b-row { grid-template-columns: 96px 1fr 44px; }
+  .ellip, .c-desc { max-width: 100%; white-space: normal; }
+  body.login-page .login-card { padding: 30px 22px 26px; }
+  body.login-page .login-card h1 { font-size: 24px; }
+  .c-kv { grid-template-columns: 1fr; }
+}

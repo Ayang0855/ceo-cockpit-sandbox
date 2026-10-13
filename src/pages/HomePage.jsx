@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Brand, EyeToggle, Wave } from "../components/ui.jsx"
-import { departments, deptHue, agents } from "../data/db.js"
+import { Brand, EyeToggle, Wave, SourceBadge } from "../components/ui.jsx"
+import { deptHue, agents } from "../data/db.js"
+import { useCockpit } from "../lib/dataset.js"
 import { fmtMoney, clockNow } from "../lib/util.js"
 import { paintCity } from "../lib/city.js"
 
-const METRICS = { cash: 775963.0, target: 900000.0 }
+// 今日需跟进：后端口径 —— 客户 nextFollow 落在今天的条数
+function todayFollowCount(customers = []) {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, "0")
+  const today = `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`
+  return customers.filter((c) => String(c.nextFollow || "").startsWith(today)).length
+}
 
 function AgentCard({ a, i }) {
   return (
@@ -29,6 +36,7 @@ export default function HomePage() {
   const [view, setView] = useState("brief")
   const [sync, setSync] = useState(clockNow())
   const cityRef = useRef(null)
+  const { data, source, loading } = useCockpit()
 
   useEffect(() => {
     const t = setInterval(() => setSync(clockNow()), 1000)
@@ -40,8 +48,13 @@ export default function HomePage() {
     return () => clearTimeout(t)
   }, [])
 
-  const gap = METRICS.target - METRICS.cash
-  const rate = ((METRICS.cash / METRICS.target) * 100).toFixed(2)
+  // —— 全部业务数字来自后端聚合接口 /api/v1/cockpit/overview ——
+  const departments = data?.departments ?? []
+  const metrics = data?.metrics ?? { cashActual: 0, cashTarget: 0, gap: 0, completionRate: 0, needIntervention: 0 }
+  const totalCustomers = data?.counts?.customers ?? 0
+  const todayFollow = todayFollowCount(data?.customers)
+  const gap = metrics.gap
+  const rate = Number(metrics.completionRate || 0).toFixed(2)
   const online = departments.filter((d) => d.online)
   const offline = departments.filter((d) => !d.online)
   const money = (v) => (amountVisible ? fmtMoney(v) : "¥ *****")
@@ -67,12 +80,15 @@ export default function HomePage() {
 
       {/* 简报 */}
       <section className="brief rise">
-        <p className="kicker">星澜智驭 · AI 晨报 · MORNING BRIEF</p>
+        <p className="kicker">
+          星澜智驭 · AI 晨报 · MORNING BRIEF
+          <SourceBadge source={source} generatedAt={data?.generatedAt} />
+        </p>
         <h1>
-          今日跟进 <em>2</em> 个客户，月度完成 <em>{rate}%</em>，{" "}
-          <em className="red">158</em> 个客户需要你介入
+          今日跟进 <em>{todayFollow}</em> 个客户，月度完成 <em>{rate}%</em>，{" "}
+          <em className="red">{metrics.needIntervention}</em> 个客户需要你介入
         </h1>
-        <p className="sub">白昼 · 人机并肩</p>
+        <p className="sub">白昼 · 人机并肩 · 在册客户 {totalCustomers} 个</p>
       </section>
 
       {/* 左列 · 部门矩阵 */}
@@ -125,7 +141,7 @@ export default function HomePage() {
       {/* 中央全息城市 + 沙盘入口 */}
       <div className="home-center">
         <div className="rise" style={{ animationDelay: "0.1s" }}>
-        <canvas ref={cityRef} className="city" width={560} height={430} style={{ width: "min(44vw,560px)", height: "auto" }} />
+        <canvas ref={cityRef} className="city" width={560} height={430} />
         <div>
           <button className="sand-cap" onClick={() => nav("/sandbox")}>
             星澜智驭 · 公司沙盘 · 进入全域视图 <span className="arr">→</span>
@@ -148,16 +164,16 @@ export default function HomePage() {
       {/* 底部 KPI 带 */}
       <section className="kpi-band glass corners rise" style={{ animationDelay: "0.2s" }}>
         <span className="band-code">CORE-METRICS</span>
-        <div className="km"><span className="k">实际收款</span><span className="v">{money(METRICS.cash)}</span></div>
+        <div className="km"><span className="k">实际收款</span><span className="v">{money(metrics.cashActual)}</span></div>
         <div className="divider" />
-        <div className="km"><span className="k">目标</span><span className="v">{money(METRICS.target)}</span></div>
+        <div className="km"><span className="k">目标</span><span className="v">{money(metrics.cashTarget)}</span></div>
         <div className="divider" />
         <div className="km"><span className="k">缺口</span><span className="v is-gap">{money(gap)}</span></div>
         <div className="divider" />
         <div className="km"><span className="k">完成率</span><span className="v">{rate}<small>%</small></span></div>
         <div className="kpi-cta">
-          <button className="btn-primary" onClick={() => nav("/departments/200")}>
-            <b>158</b> 个需介入客户 · 立即介入 <span className="arr">→</span>
+          <button className="btn-primary" onClick={() => nav("/customers")} disabled={loading && !totalCustomers}>
+            <b>{metrics.needIntervention}</b> 个需介入客户 · 立即介入 <span className="arr">→</span>
           </button>
         </div>
       </section>

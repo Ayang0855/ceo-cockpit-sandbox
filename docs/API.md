@@ -333,18 +333,78 @@ HTTP 映射：`400xx→400`、`401xx→401`、`403xx→403`、`404xx→404`、`4
 
 ---
 
-## 10. 前端接入说明
+## 10. 驾驶舱公开读接口 `/cockpit`
+
+面向**未登录的驾驶舱视图**（晨报 / 沙盘 / 客户经营 / 主管报告）的只读聚合接口。
+数据与 `/data`、`/configs` 完全同源 —— 控制台改了数据或配置，驾驶舱刷新即生效，**前端不再内置任何业务数字**。
+
+### 10.1 `GET /cockpit/overview`（无需认证）
+
+一次返回驾驶舱全部所需数据：
+
+```jsonc
+{
+  "metrics": {
+    "cashActual": 775963,          // 取自配置项 metrics.cashActual
+    "cashTarget": 900000,          // 取自配置项 metrics.cashTarget
+    "gap": 124037,                 // 目标 - 实际
+    "completionRate": 86.22,       // 实际 / 目标 × 100，保留 2 位
+    "needIntervention": 5,         // tags 含「需介入」的客户数
+    "interventionThreshold": 150,  // 取自配置项 metrics.interventionThreshold
+    "riskCustomers": 13            // tags 含「风险」的客户数
+  },
+  "counts": {
+    "customers": 30, "needInterventionCustomers": 5, "riskCustomers": 13, "highLevelCustomers": 5,
+    "departments": 7, "onlineDepartments": 5, "offlineDepartments": 2,
+    "units": 9, "onlineUnits": 8, "offUnits": 1,
+    "reports": 2
+  },
+  "byStage": { "已成交": 6, "方案展示": 6, "需求确认": 6, "初步接洽": 6, "商务谈判": 6 },
+  "departments": [ /* 已驼峰化：departmentId / codeName / dom / online / mcp / members … */ ],
+  "units":       [ /* 含 x / y / scale / stats: [[标签,值],…]（由 metrics JSON 展开） */ ],
+  "customers":   [ /* 含 needIntervention / risky / red 布尔标记 */ ],
+  "reports":     [ /* 含 generated / body（同时给出 md 别名） */ ],
+  "site": { "name": "…", "filing": "…" },
+  "generatedAt": "2026-10-13 11:34:12"
+}
+```
+
+### 10.2 `GET /cockpit/customers`（无需认证，服务端筛选分页）
+
+| 参数 | 说明 |
+|---|---|
+| `page` / `pageSize` | 分页，`pageSize` 默认 12、上限 200 |
+| `keyword` | 模糊匹配 `name` / `code` / `owner` |
+| `stage` | 精确匹配销售阶段 |
+| `owner` | 精确匹配归属销售 |
+| `tag` | `tags` LIKE 匹配（如 `需介入`、`风险`） |
+
+返回 `{ list, total, page, pageSize, pages, options }`；`options.stages / owners / tags` 由后端下发，前端下拉框不再写死枚举。
+
+### 10.3 与前端的数据层约定
+
+- `src/lib/dataset.js` 是驾驶舱唯一数据入口：`useCockpit()` 消费 `overview`，`useCustomers()` 消费 `customers`。
+- 单次请求 + 模块级缓存 + 订阅广播：多页面共享一份数据，切页不重复请求。
+- 后端不可用时回退 `src/data/db.js` 静态演示数据，页面永不白屏；页头徽标显示 `LIVE · 后端数据` 或 `DEMO · 本地演示`，一眼可辨数据口径。
+- 后端从「不可用」翻转为「可用」时自动重新拉取（`onApiAvailabilityChange`）。
+
+---
+
+## 11. 前端接入说明
 
 - 前端始终请求同源相对路径 `/api/v1/…`：开发态由 Vite 代理（`CEO_API_TARGET` 可指定后端），生产态由 Node 服务直接同源托管 `dist-site`，天然无跨域。
 - `src/lib/api.js`：统一鉴权头、包络解包、`ApiError(code,message,traceId,details)`、`probeApi()` 探测降级（后端不可用时控制台明确提示而非白屏）。
+- 驾驶舱数据层 `src/lib/dataset.js`：`useCockpit()` / `useCustomers()` 消费 `/cockpit` 公开聚合接口（见第 10 节），业务数字与列表全部由后端驱动。
 - 控制台路由 `/console`：布局加载时校验登录态 → 拉取 `me` → 按权限点过滤菜单与操作按钮；未授权项置灰并标注缺少的权限码。
 - 首登/重置密码后 `mustChangePassword=true` 会在控制台顶部常驻提示，侧栏「修改密码」可自助改密。
 
-## 11. 快速自检
+## 12. 快速自检
 
 ```bash
 npm run server          # 启动 API + Web（默认 :8787）
-npm run test:api        # 149 项断言联调（幂等，跑完数据回到种子状态）
+npm run test:api        # 181 项断言联调（幂等，跑完数据回到种子状态）
+npm run db:check        # 数据体检：当前库 vs 代码种子，定位「改了代码库没跟上」的漂移
+npm run db:reset        # 备份并按当前代码种子重建数据库
 curl localhost:8787/api/v1/meta/endpoints   # 接口清单
 ```
 

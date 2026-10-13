@@ -1,15 +1,22 @@
 import { useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { GuiHeader, Wave } from "../components/ui.jsx"
+import { GuiHeader, Wave, SourceBadge } from "../components/ui.jsx"
 import { deptById } from "../data/db.js"
+import { useCockpit } from "../lib/dataset.js"
 import { clockNow } from "../lib/util.js"
 
 export default function DepartmentPage() {
   const { departmentId } = useParams()
   const nav = useNavigate()
-  const d = deptById(departmentId)
+  const { data, source } = useCockpit()
   const [amountVisible, setAmountVisible] = useState(true)
   const [sync, setSync] = useState(clockNow())
+
+  // 基础字段（名称/二级名/配色/一句话定位/人数/在线态）以后端为准；
+  // 战情页专有的下钻内容（KPI 卡组、作战序列、资产账本、夜报）仍是页面级演示内容。
+  const backendDept = (data?.departments ?? []).find((d) => String(d.departmentId) === String(departmentId))
+  const staticDept = deptById(departmentId)
+  const d = backendDept ? { ...(staticDept || {}), ...backendDept, kpis: staticDept?.kpis, attentions: staticDept?.attentions, battleOrder: staticDept?.battleOrder, assets: staticDept?.assets, nightReport: staticDept?.nightReport, drilldowns: staticDept?.drilldowns } : staticDept
 
   if (!d) {
     return (
@@ -34,7 +41,7 @@ export default function DepartmentPage() {
         right={
           <>
             <span className="code">SEC / {d.departmentId}</span>
-            <span className="asof">数据时间 ------</span>
+            <SourceBadge source={source} />
             <span className="sync">SYNC <b>{sync}</b></span>
             <button className="ava-eye" onClick={() => setAmountVisible((v) => !v)} title="金额可见性">
               <svg viewBox="0 0 24 24"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z" /><circle cx="12" cy="12" r="2.6" /></svg>
@@ -44,7 +51,7 @@ export default function DepartmentPage() {
       />
 
       <div className="wrap">
-        <p className="sec-kicker">部门战情 · {d.codeName.split(" ")[0]} BRIEF</p>
+        <p className="sec-kicker">部门战情 · {String(d.codeName || "").split(" ")[0]} BRIEF</p>
         <section className="pagebrief rise">
           <h1>{d.name} · <em>{d.codeName}</em></h1>
           <p className="tagline">{d.tagline}</p>
@@ -53,7 +60,7 @@ export default function DepartmentPage() {
 
         {/* KPI 卡组 */}
         <section className="kpi-cards rise" style={{ animationDelay: "0.05s" }}>
-          {d.kpis.map((k) => (
+          {(d.kpis ?? []).map((k) => (
             <div className={`kpi-card tone-${k.tone || "ink"} ${k.tone === "pending" ? "pending" : ""}`} key={k.label}>
               <div className="k">{k.label}</div>
               <div className="b">

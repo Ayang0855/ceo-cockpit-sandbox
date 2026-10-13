@@ -95,8 +95,8 @@ body.home .domain-tab { color: var(--moon); font-size: 15px; }
 body.home .domain-tab::after { background: rgba(159, 232, 238, 0.5); }
 body.home .domain-tab .cnt { color: var(--star); border-color: rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.06); }
 
-.day-col { position: fixed; left: clamp(28px, 3vw, 48px); top: 220px; bottom: 108px; z-index: 15; width: min(360px, 29vw); display: flex; flex-direction: column; gap: 10px; }
-.night-col { position: fixed; right: clamp(28px, 3vw, 48px); top: 220px; bottom: 108px; z-index: 15; width: min(360px, 29vw); display: flex; flex-direction: column; gap: 10px; }
+.day-col { position: fixed; left: clamp(28px, 3vw, 48px); top: 240px; bottom: 108px; z-index: 15; width: min(360px, 29vw); display: flex; flex-direction: column; gap: 10px; }
+.night-col { position: fixed; right: clamp(28px, 3vw, 48px); top: 240px; bottom: 108px; z-index: 15; width: min(360px, 29vw); display: flex; flex-direction: column; gap: 10px; }
 .col-head { display: flex; align-items: center; justify-content: space-between; }
 .col-scroll { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; padding-bottom: 18px; scrollbar-width: thin; }
 .col-scroll::-webkit-scrollbar { width: 5px; }
@@ -141,7 +141,7 @@ body.home .domain-tab .cnt { color: var(--star); border-color: rgba(255, 255, 25
 
 /* 首页中部沙盘入口 */
 .home-center { position: fixed; left: 50%; top: 46%; transform: translate(-50%, -50%); z-index: 8; text-align: center; }
-.home-center .city { display: block; }
+.home-center .city { display: block; width: min(44vw, 560px); height: auto; }
 .home-center .sand-cap {
   display: inline-flex; align-items: center; gap: 10px; margin-top: 6px; padding: 10px 20px;
   border-radius: 999px; font-size: 13px; color: var(--moon); cursor: pointer;
@@ -335,6 +335,10 @@ body.home .domain-tab .cnt { color: var(--star); border-color: rgba(255, 255, 25
   border: 1px solid rgba(20, 27, 40, 0.14); border-radius: 8px; outline: none; appearance: none;
 }
 .ctable { margin-top: 18px; padding: 6px 8px 16px; overflow: hidden; }
+/* 表格横向滚动容器：窄屏下保持列宽可读，不被裁切 */
+.ctable-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.ctable-scroll::-webkit-scrollbar { height: 8px; }
+.ctable-scroll::-webkit-scrollbar-thumb { background: rgba(var(--klein-rgb), 0.28); border-radius: 999px; }
 .ctable .crow {
   display: grid; grid-template-columns: 0.85fr 1.15fr 0.8fr 0.85fr 1.5fr 1.15fr 1.35fr;
   gap: 12px; align-items: center; padding: 14px 18px; font-size: 13px; color: var(--ink2);
@@ -373,3 +377,119 @@ body.home .domain-tab .cnt { color: var(--star); border-color: rgba(255, 255, 25
 .md p { margin: 6px 0; }
 .md ul { margin: 8px 0 8px 20px; }
 .md li { margin: 4px 0; }
+
+/* ============================================================
+   数据来源徽标（LIVE = 后端数据 / DEMO = 本地回退）
+   ============================================================ */
+.src-badge {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; vertical-align: middle;
+  padding: 3px 9px; border-radius: 999px; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.1em; white-space: nowrap;
+}
+.src-badge i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.src-badge em { font-style: normal; opacity: 0.66; letter-spacing: 0.04em; }
+.src-badge.is-live { color: #238A57; border: 1px solid rgba(35, 138, 87, 0.35); background: rgba(35, 138, 87, 0.08); }
+.src-badge.is-live i { background: #238A57; box-shadow: 0 0 6px rgba(35, 138, 87, 0.7); }
+.src-badge.is-demo { color: #C77F1D; border: 1px solid rgba(199, 127, 29, 0.4); background: rgba(199, 127, 29, 0.1); }
+.src-badge.is-demo i { background: #C77F1D; box-shadow: 0 0 6px rgba(199, 127, 29, 0.7); }
+body.home .src-badge.is-live { color: #6CE0A6; border-color: rgba(108, 224, 166, 0.42); background: rgba(108, 224, 166, 0.1); }
+body.home .src-badge.is-live i { background: #6CE0A6; }
+body.home .src-badge.is-demo { color: #E9A94F; border-color: rgba(233, 169, 79, 0.45); background: rgba(233, 169, 79, 0.12); }
+body.home .src-badge.is-demo i { background: #E9A94F; }
+
+/* ============================================================
+   响应式：平板（≤1080px）
+   ============================================================ */
+@media (max-width: 1080px) {
+  .home-main .brief { width: min(560px, 52vw); }
+  .day-col, .night-col { width: min(300px, 27vw); top: 252px; }
+  .rep-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+  .rep-layout { grid-template-columns: 260px minmax(0, 1fr); }
+}
+
+/* ============================================================
+   响应式：小屏 / 手机（≤900px）
+   —— 驾驶舱三栏 fixed 布局改为文档流单列堆叠，KPI 带与表格改为可滚动
+   ============================================================ */
+@media (max-width: 900px) {
+  /* ---------- 顶部栏：品牌一行、操作区一行 ---------- */
+  .topbar, .sb-top {
+    padding: 14px clamp(14px, 4vw, 22px) 0;
+    flex-wrap: wrap; align-items: flex-start; gap: 8px 10px;
+  }
+  .sb-top { padding-top: 12px; }
+  .topbar .top-right { margin-left: auto; gap: 10px; }
+  .views { flex-wrap: wrap; gap: 6px; }
+  .views button { padding: 7px 11px; font-size: 12px; border-radius: 10px; }
+  .brand .txt b { font-size: 17px; letter-spacing: 0.08em; }
+  .brand .txt b .prod { font-size: 10px; padding: 2px 7px; }
+
+  /* ---------- 首页：单列文档流 ---------- */
+  .home-main { padding: 106px 16px 78px; display: flex; flex-direction: column; gap: 16px; }
+  .home-main .brief,
+  .home-main .day-col,
+  .home-main .night-col,
+  .home-main .home-center,
+  .home-main .kpi-band {
+    position: static; inset: auto; width: auto; max-width: none; transform: none; margin: 0;
+  }
+  .home-main .brief h1 { font-size: 20px; line-height: 1.45; }
+  .home-main .brief .sub { flex-wrap: wrap; font-size: 12px; }
+  .home-center .city { width: min(86vw, 420px); }
+  .day-col .col-scroll, .night-col .col-scroll { max-height: 300px; overflow-y: auto; }
+  .kpi-band { flex-wrap: wrap; gap: 14px 20px; padding: 26px 18px 18px; min-height: 0; }
+  .kpi-band .band-code { top: 8px; left: 18px; }
+  .kpi-band .km .v { font-size: 21px; }
+  .kpi-band .divider { display: none; }
+  .kpi-cta { margin-left: 0; width: 100%; }
+  .kpi-cta .btn-primary { width: 100%; justify-content: center; }
+  .site-filing-footer { position: static; padding: 0 0 14px; }
+
+  /* ---------- 业务页页头 ---------- */
+  .gui-top { padding: 12px clamp(14px, 4vw, 22px) 10px; flex-wrap: wrap; row-gap: 4px; }
+  .gui-top .crumb { order: 3; flex-basis: 100%; margin-top: 2px; font-size: 12px; white-space: normal; }
+  .gui-top .right { margin-left: auto; gap: 10px; padding-top: 0; flex-wrap: wrap; justify-content: flex-end; }
+  .gui-top .asof { display: none; }
+  .accent-bar { top: 86px; }
+  .page-shell { padding: 108px 0 64px; }
+  .page-shell .wrap { width: calc(100vw - 32px); }
+  .pagebrief h1 { font-size: 21px; line-height: 1.45; }
+
+  /* ---------- 客户表格：横向滚动，列宽保持可读 ---------- */
+  .ctable { padding: 4px 4px 12px; }
+  .ctable-scroll .crow { min-width: 880px; }
+  .ctable .crow { padding: 12px 12px; }
+
+  /* ---------- 筛选条 ---------- */
+  .filters { gap: 8px; }
+  .filters input[type="text"] { width: 100%; }
+  .filters select { flex: 1 1 44%; min-width: 0; }
+
+  /* ---------- 部门战情 / 单位页 ---------- */
+  .rep-grid { grid-template-columns: minmax(0, 1fr); }
+  .btable { overflow-x: auto; }
+  .btable .brow { min-width: 660px; }
+  .attention-item { flex-wrap: wrap; row-gap: 6px; }
+  .attention-item .tx { white-space: normal; flex-basis: 100%; order: 3; line-height: 1.6; }
+  .kpi-card { flex: 1 1 calc(50% - 6px); min-width: 0; }
+
+  /* ---------- 主管报告 ---------- */
+  .rep-layout { grid-template-columns: minmax(0, 1fr); }
+  .rep-list { max-height: 300px; }
+  .rep-body { padding: 18px 16px 20px; }
+  .rep-body .hd h2 { font-size: 17px; }
+  .md { font-size: 13px; }
+}
+
+/* ============================================================
+   响应式：窄屏手机（≤480px）
+   ============================================================ */
+@media (max-width: 480px) {
+  .home-main { padding-top: 100px; }
+  .home-main .brief h1 { font-size: 18px; }
+  .kpi-band .km .v { font-size: 19px; }
+  .kpi-band .km .k { font-size: 11px; }
+  .src-badge { margin-left: 0; margin-top: 6px; display: inline-flex; }
+  .brief .kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 0; line-height: 1.9; }
+  .rep-tabs { flex-wrap: wrap; }
+}

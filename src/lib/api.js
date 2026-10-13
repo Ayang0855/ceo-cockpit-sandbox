@@ -17,13 +17,27 @@ export const clearAuth = () => {
 
 // 后端可用性：探测失败则整个控制台进入演示降级模式
 let apiAvailable = null
+const availableListeners = new Set()
 export const isApiAvailable = () => apiAvailable === true
+
+/** 订阅可用性翻转（false→true 或 true→false），返回取消订阅函数 */
+export function onApiAvailabilityChange(cb) {
+  availableListeners.add(cb)
+  return () => availableListeners.delete(cb)
+}
+function setAvailability(v) {
+  const prev = apiAvailable
+  apiAvailable = v
+  // 首次探测（null → true/false）同样广播：数据层需要从「回退态」切到「真实态」
+  if (prev !== v) availableListeners.forEach((cb) => { try { cb(v) } catch { /* 忽略订阅方异常 */ } })
+}
+
 export async function probeApi() {
   try {
     const r = await fetch("/api/v1/monitor/health", { cache: "no-store" })
-    apiAvailable = r.ok
+    setAvailability(r.ok)
   } catch {
-    apiAvailable = false
+    setAvailability(false)
   }
   return apiAvailable
 }
@@ -55,10 +69,10 @@ async function request(method, path, { body, params, raw } = {}) {
   try {
     res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined, cache: "no-store" })
   } catch (e) {
-    apiAvailable = false
+    setAvailability(false)
     throw new ApiError(-1, "无法连接后端服务（已切换为演示模式）", null, null)
   }
-  apiAvailable = true
+  setAvailability(true)
 
   let payload = null
   try { payload = await res.json() } catch { /* 非 JSON 响应 */ }
@@ -128,4 +142,8 @@ export const api = {
   saveConfigsBatch: (items) => request("PUT", "/configs", { body: { items } }),
   createConfig: (body) => request("POST", "/configs", { body }),
   deleteConfig: (key) => request("DELETE", `/configs/${key}`),
+
+  // ---- 驾驶舱（公开只读聚合，未登录也可读） ----
+  cockpitOverview: () => request("GET", "/cockpit/overview"),
+  cockpitCustomers: (params) => request("GET", "/cockpit/customers", { params }),
 }

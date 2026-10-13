@@ -232,6 +232,63 @@ const ROLES = [
 
 const nowISO = () => new Date().toISOString().replace("T", " ").slice(0, 19)
 
+// ------------------------------------------------------------
+// 配置项「定义」清单
+//   注意：定义（类型/分组/名称/说明/是否可编辑）每次启动都会同步到库；
+//   已存在条目的 value 属运行期数据，不会被覆盖。
+//   这样改代码里的配置定义，无需清库即可生效。
+// ------------------------------------------------------------
+export const CONFIG_DEFS = [
+  ["site.name", "星澜智驭 · CEO 驾驶舱", "string", "site", "系统名称", "展示在浏览器标题与登录页", 0, 1],
+  ["site.filing", "演示复刻 · 仅作技术验证", "string", "site", "底部标识", "页脚展示的备案/标识文案", 0, 1],
+  ["metrics.cashTarget", "900000", "number", "business", "月度回款目标", "用于计算缺口与完成率", 0, 1],
+  ["metrics.cashActual", "775963", "number", "business", "当月实际收款", "口径：实际收款", 0, 1],
+  ["metrics.interventionThreshold", "150", "number", "business", "需介入人数阈值", "超过阈值时首页高亮提示", 0, 1],
+  ["security.sessionTtl", "7200", "number", "security", "登录令牌有效期", "单位秒，默认 7200", 0, 1],
+  ["security.maxLoginFail", "5", "number", "security", "登录失败锁定阈值", "连续失败达到该值后锁定账号", 0, 1],
+  ["security.lockMinutes", "10", "number", "security", "锁定时长（分钟）", "账号被锁定后的禁用时长", 0, 1],
+  ["security.rateLimitPerMin", "600", "number", "security", "接口限流（次/分钟）", "单 IP 每分钟最大请求数，修改后 5 秒内生效", 0, 1],
+  ["observability.logRetentionDays", "30", "number", "observability", "日志保留天数", "超出后由清理任务归档删除", 0, 1],
+  ["observability.auditWriteOnly", "true", "boolean", "observability", "写操作强制留痕", "所有写接口是否强制写审计日志", 0, 1],
+  ["integration.webhookUrl", "https://hooks.example.com/cockpit", "string", "integration", "告警回调地址", "监控告警推送地址", 0, 1],
+  ["integration.webhookSecret", "whsec_6f2a91c4d7", "string", "integration", "回调签名密钥", "用于回调请求签名校验", 1, 1],
+  ["integration.dingtalkToken", "dtk_live_8c1f0e5a", "string", "integration", "钉钉机器人令牌", "告警群机器人 access_token", 1, 1],
+  ["release.channel", "stable", "enum", "release", "发布通道", "stable / beta", 0, 1],
+  ["release.featureConsole", "true", "boolean", "release", "控制台开关", "是否启用后端控制台入口", 0, 1],
+]
+
+/**
+ * 配置定义幂等同步：
+ *   - 库里缺的键 → 按定义插入（含默认值）
+ *   - 库里已有的键 → 只更新「定义类」字段（type/group/label/description/editable/is_secret），
+ *     绝不覆盖 value，保护控制台里改过的运行参数
+ * 返回 { inserted, updated }，便于启动日志与自检输出。
+ */
+export function syncConfigDefinitions() {
+  const exists = db.prepare("SELECT key FROM configs WHERE key = ?")
+  const ins = db.prepare(`INSERT INTO configs(key,value,type,group_name,label,description,is_secret,editable,updated_at,updated_by)
+    VALUES(?,?,?,?,?,?,?,?,?,?)`)
+  const upd = db.prepare(`UPDATE configs SET type=?, group_name=?, label=?, description=?, is_secret=?, editable=?, updated_at=?
+    WHERE key=?`)
+  let inserted = 0, updated = 0
+  const ts = nowISO()
+  for (const [key, value, type, group, label, desc, secret, editable] of CONFIG_DEFS) {
+    const row = exists.get(key)
+    if (!row) {
+      ins.run(key, value, type, group, label, desc, secret, editable, ts, "system")
+      inserted++
+      continue
+    }
+    const cur = db.prepare("SELECT type,group_name,label,description,is_secret,editable FROM configs WHERE key=?").get(key)
+    if (cur.type !== type || cur.group_name !== group || cur.label !== label ||
+        cur.description !== desc || cur.is_secret !== secret || cur.editable !== editable) {
+      upd.run(type, group, label, desc, secret, editable, ts, key)
+      updated++
+    }
+  }
+  return { inserted, updated }
+}
+
 export function seedIfEmpty() {
   const permCount = db.prepare("SELECT COUNT(*) AS c FROM permissions").get().c
   if (permCount === 0) {
@@ -330,30 +387,14 @@ export function seedIfEmpty() {
   if (db.prepare("SELECT COUNT(*) AS c FROM configs").get().c === 0) {
     const ins = db.prepare(`INSERT INTO configs(key,value,type,group_name,label,description,is_secret,editable,updated_at,updated_by)
       VALUES(?,?,?,?,?,?,?,?,?,?)`)
-    const cfgs = [
-      ["site.name", "星澜智驭 · CEO 驾驶舱", "string", "site", "系统名称", "展示在浏览器标题与登录页", 0, 1],
-      ["site.filing", "演示复刻 · 仅作技术验证", "string", "site", "底部标识", "页脚展示的备案/标识文案", 0, 1],
-      ["metrics.cashTarget", "900000", "number", "business", "月度回款目标", "用于计算缺口与完成率", 0, 1],
-      ["metrics.cashActual", "775963", "number", "business", "当月实际收款", "口径：实际收款", 0, 1],
-      ["metrics.interventionThreshold", "150", "number", "business", "需介入人数阈值", "超过阈值时首页高亮提示", 0, 1],
-      ["security.sessionTtl", "7200", "number", "security", "登录令牌有效期", "单位秒，默认 7200", 0, 1],
-      ["security.maxLoginFail", "5", "number", "security", "登录失败锁定阈值", "连续失败达到该值后锁定账号", 0, 1],
-      ["security.lockMinutes", "10", "number", "security", "锁定时长（分钟）", "账号被锁定后的禁用时长", 0, 1],
-      ["security.rateLimitPerMin", "600", "number", "security", "接口限流（次/分钟）", "单 IP 每分钟最大请求数，修改后 5 秒内生效", 0, 1],
-      ["observability.logRetentionDays", "30", "number", "observability", "日志保留天数", "超出后由清理任务归档删除", 0, 1],
-      ["observability.auditWriteOnly", "true", "boolean", "observability", "写操作强制留痕", "所有写接口是否强制写审计日志", 0, 1],
-      ["integration.webhookUrl", "https://hooks.example.com/cockpit", "string", "integration", "告警回调地址", "监控告警推送地址", 0, 1],
-      ["integration.webhookSecret", "whsec_6f2a91c4d7", "string", "integration", "回调签名密钥", "用于回调请求签名校验", 1, 1],
-      ["integration.dingtalkToken", "dtk_live_8c1f0e5a", "string", "integration", "钉钉机器人令牌", "告警群机器人 access_token", 1, 1],
-      ["release.channel", "stable", "enum", "release", "发布通道", "stable / beta", 0, 1],
-      ["release.featureConsole", "true", "boolean", "release", "控制台开关", "是否启用后端控制台入口", 0, 1],
-    ]
-    cfgs.forEach(([key, value, type, group, label, desc, secret, editable]) =>
+    CONFIG_DEFS.forEach(([key, value, type, group, label, desc, secret, editable]) =>
       ins.run(key, value, type, group, label, desc, secret, editable, nowISO(), "system"))
   }
 }
 
 seedIfEmpty()
+// 每次启动同步配置「定义」：改代码即可生效，无需清库；已改过的 value 原样保留
+export const configSyncResult = syncConfigDefinitions()
 
 export const now = () => new Date().toISOString().replace("T", " ").slice(0, 19)
 

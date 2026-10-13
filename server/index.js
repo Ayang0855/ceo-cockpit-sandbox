@@ -15,6 +15,7 @@ import dataRoutes from "./routes/data.js"
 import logRoutes from "./routes/logs.js"
 import monitorRoutes from "./routes/monitor.js"
 import configRoutes from "./routes/configs.js"
+import cockpitRoutes from "./routes/cockpit.js"
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 export function createApp() {
@@ -39,7 +40,7 @@ export function createApp() {
     name: "CEO 驾驶舱控制台 API",
     version: "1.0.0",
     docs: "/api/v1/meta/endpoints",
-    modules: ["auth 认证", "users 用户管理", "roles 角色权限", "data 数据管理", "logs 日志审计", "monitor 监控中心", "configs 配置维护"],
+    modules: ["auth 认证", "users 用户管理", "roles 角色权限", "data 数据管理", "logs 日志审计", "monitor 监控中心", "configs 配置维护", "cockpit 驾驶舱公开读"],
   }))
 
   app.get("/api/v1/meta/endpoints", (req, res) => ok(res, {
@@ -51,6 +52,7 @@ export function createApp() {
     logs: ["GET /api/v1/logs/summary", "GET /api/v1/logs/audit", "GET /api/v1/logs/login", "DELETE /api/v1/logs/retention"],
     monitor: ["GET /api/v1/monitor/health", "GET /api/v1/monitor/overview", "GET /api/v1/monitor/endpoints", "GET /api/v1/monitor/series", "GET /api/v1/monitor/alerts"],
     configs: ["GET /api/v1/configs", "GET /api/v1/configs/:key", "POST /api/v1/configs", "PUT /api/v1/configs/:key", "PUT /api/v1/configs", "DELETE /api/v1/configs/:key"],
+    cockpit: ["GET /api/v1/cockpit/overview（公开只读，驾驶舱全量聚合）", "GET /api/v1/cockpit/customers（公开只读，服务端筛选分页）"],
   }))
 
   app.use("/api/v1/auth", authRoutes)
@@ -60,6 +62,7 @@ export function createApp() {
   app.use("/api/v1/logs", logRoutes)
   app.use("/api/v1/monitor", monitorRoutes)
   app.use("/api/v1/configs", configRoutes)
+  app.use("/api/v1/cockpit", cockpitRoutes)
 
   app.use("/api", notFound)
 

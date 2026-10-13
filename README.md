@@ -27,12 +27,13 @@ npm run start:prod   # 构建前端 + 启动后端，二者同源
 
 默认管理员 **`admin / admin123456`**（首登会提示改密）。其他种子账号见 [docs/API.md](docs/API.md) 第 2 节。
 
-首次启动会自动创建 `server/data/cockpit.db` 并写入种子数据（15 权限点 / 4 角色 / 5 用户 / 7 部门 / 9 沙盘单位 / 30 客户 / 16 配置项），无需手工初始化数据库。
+首次启动会自动创建 `server/data/cockpit.db` 并写入种子数据（15 权限点 / 4 角色 / 5 用户 / 7 部门 / 9 沙盘单位 / 30 客户 / 16 配置项），无需手工初始化数据库。配置项的**定义**（类型 / 分组 / 名称 / 说明）每次启动都会与代码同步，已修改的 `value` 不会被覆盖；业务数据发生漂移时可用 `npm run db:check` 定位、`npm run db:reset` 重建。
 
 ### 自检
 
 ```bash
-npm run test:api     # 149 项接口联调断言（幂等，跑完数据回到种子状态）
+npm run test:api     # 181 项接口联调断言（幂等，跑完数据回到种子状态）
+npm run db:check     # 数据体检：当前库 vs 代码种子，定位「改了代码、库没跟上」的漂移
 curl localhost:8787/api/v1/meta/endpoints   # 查看完整接口清单
 ```
 
@@ -48,6 +49,7 @@ curl localhost:8787/api/v1/meta/endpoints   # 查看完整接口清单
 | **前端路由** | `HashRouter` + Vite `base: "./"` | 部署在根路径或任意子路径（含 GitHub Pages）都能直接用，**无需服务端重写规则** |
 | **响应契约** | 统一包络 `{code,message,data,traceId,ts}`，前端 `ApiError` 统一解包与归一化 | 后端改错误码前端自动适配；401 系列自动清登录态并跳登录页 |
 | **数据字段** | 后端出口全部驼峰化（`shapeAudit()` 等映射层），前端不感知数据库下划线字段 | 改表结构不影响前端 |
+| **驾驶舱数据源** | 驾驶舱业务数字与列表全部来自公开聚合接口 `GET /api/v1/cockpit/overview`（`src/lib/dataset.js` 统一消费，模块级缓存 + 可用性翻转自动重拉） | **前端不再内置任何业务数字**：控制台改数/改配置，驾驶舱刷新即一致；后端不可用时回退演示数据并在页头显示 `DEMO` 徽标 |
 | **资源扩展** | `GET /api/v1/data` 下发资源 Schema（字段/类型/枚举/筛选/排序） | 新增业务资源只改后端注册表，前端数据管理页**自动可读可写** |
 | **降级容错** | `probeApi()` 探测后端可用性 | 后端未启动时控制台明确提示「后端未就绪」而非白屏；驾驶舱降级为演示模式 |
 | **依赖管理** | 单一 `package.json` 同时包含前后端依赖，锁定在 `package-lock.json` | 一次 `npm ci` 装齐，无 monorepo/workspace 耦合问题 |
@@ -145,7 +147,9 @@ ceo-cockpit/
 | `npm run preview` | 预览构建产物（纯静态，另需单独启动后端） |
 | `npm run server` / `npm start` | 启动后端 API + 同源托管已有构建产物 |
 | `npm run start:prod` | `build` + `server`，一条命令跑起完整生产形态 |
-| `npm run test:api` | 149 项接口联调断言（需后端已启动） |
+| `npm run test:api` | 181 项接口联调断言（需后端已启动） |
+| `npm run db:check` | 数据体检：对比当前库与代码种子，列出漂移字段（退出码 1 = 有漂移） |
+| `npm run db:reset` | 备份当前库到 `server/data/backup-<时间戳>.db` 后按当前种子重建（保留最近 5 份备份） |
 
 ---
 

@@ -44,6 +44,22 @@ export function Wave({ seed = 1, dark = true, className = "" }) {
   return <canvas ref={ref} className={className} />
 }
 
+// ---------- 数据来源徽标 ----------
+// api = 数据来自后端（与控制台同一份数据）；static = 后端不可用，已降级为本地演示数据
+export function SourceBadge({ source, generatedAt = null, className = "" }) {
+  const live = source === "api"
+  return (
+    <span className={`src-badge ${live ? "is-live" : "is-demo"} ${className}`}
+      title={live
+        ? `数据源：后端 /api/v1/cockpit${generatedAt ? ` · 生成于 ${generatedAt}` : ""}`
+        : "后端不可用，当前展示本地演示数据"}>
+      <i />
+      {live ? "LIVE · 后端数据" : "DEMO · 本地演示"}
+      {live && generatedAt ? <em>{generatedAt.slice(11, 19)}</em> : null}
+    </span>
+  )
+}
+
 // ---------- 空状态 ----------
 export function EmptyState({ text }) {
   return <div className="empty-hint">{text}</div>
