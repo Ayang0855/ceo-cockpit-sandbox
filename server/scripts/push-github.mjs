@@ -65,10 +65,10 @@ function curl(url, { method = "GET", form = null, json = null, headers = [], tim
 }
 
 // 带重试的 api 调用
-function apiCall(url, { method = "GET", json = null, headers = [], timeout = 30 } = {}, tries = 3) {
+function apiCall(url, { method = "GET", form = null, json = null, headers = [], timeout = 30 } = {}, tries = 3) {
   let last = null
   for (let i = 0; i < tries; i++) {
-    const r = curl(url, { method, json, headers, timeout })
+    const r = curl(url, { method, form, json, headers, timeout })
     if (r.ok) return r.body
     last = r.error
     if (i < tries - 1) execFileSync("sleep", ["2"])
