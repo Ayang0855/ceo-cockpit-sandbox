@@ -6,6 +6,9 @@
 - **后端**：Express 5 + Node 22 内置 `node:sqlite`，零原生编译依赖
 - **一体化**：一条 `npm run server` 同时提供 API 与前端站点，同源部署、天然无跨域
 
+> **在线体验**：<https://ceo-cockpit-sandbox.app.workbuddy.host/>
+> 手机 / 电脑直接打开即可（已做 375–430px 移动端适配）。登录 `admin / admin123456` 或 `cs_lead / cs12345678`。
+
 > 本项目为**原创实现**：全部代码、演示数据与图形均为自研，未使用任何第三方站点的源码或图片素材。界面布局与视觉语言参考了同类「公司操作系统」产品的通用设计范式。
 
 ---
@@ -150,6 +153,7 @@ ceo-cockpit/
 | `npm run test:api` | 181 项接口联调断言（需后端已启动） |
 | `npm run db:check` | 数据体检：对比当前库与代码种子，列出漂移字段（退出码 1 = 有漂移） |
 | `npm run db:reset` | 备份当前库到 `server/data/backup-<时间戳>.db` 后按当前种子重建（保留最近 5 份备份） |
+| `npm run prepare:deploy` | 生成「发布就绪」目录 `../ceo-cockpit-deploy`（前端产物改名为 `public-site/`、只带运行时依赖、JWT 密钥固定），用于单端口公网发布 |
 
 ---
 
@@ -159,7 +163,18 @@ ceo-cockpit/
 2. **前端静态托管 + 后端独立部署**：
    - 前端：`npm run build`，把 `dist-site/` 上传到任意静态托管。驾驶舱视图完整可用；控制台需把 `/api` 反向代理到后端，或设置 `CEO_WEB_ROOT` 由后端托管。
    - 后端：`npm run server`，用 `CEO_JWT_SECRET` 注入生产密钥、`CEO_DATA_DIR` 指向持久化卷。
-3. **GitHub Pages**：推送到 `main` 分支后 `.github/workflows/deploy.yml` 自动构建发布 `dist-site`，访问 `https://<用户名>.github.io/<仓库名>/`。纯静态环境下驾驶舱可用，控制台需另起后端（见方式 2）。
+3. **GitHub Pages**：推送到 `main` 分支后 `.github/workflows/deploy.yml` 自动构建发布 `dist-site`，访问 `https://<用户名>.github.io/<仓库名>/`。纯静态环境下驾驶舱可用（数据层会自动回退演示数据并显示 `DEMO` 徽标），控制台需另起后端（见方式 2）。
+
+### 4. 单端口公网发布（当前线上形态）
+
+`npm run prepare:deploy` 会生成发布副本（`public-site/` 承载前端、`server/` 承载 API、仅保留 `express`+`cors` 运行时依赖、JWT 密钥固定以免重新发布后登录态失效），随后把该目录发布为一个 HTTP 服务即可——**前端与后端同源、同一条链接**，无需额外配置域名、跨域或反向代理：
+
+```bash
+npm run build            # 产出 dist-site
+npm run prepare:deploy   # → ../ceo-cockpit-deploy
+```
+
+当前线上：**<https://ceo-cockpit-sandbox.app.workbuddy.host/>**
 
 ---
 

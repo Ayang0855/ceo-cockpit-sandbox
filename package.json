@@ -16,7 +16,9 @@
     "start:prod": "npm run build && node --no-warnings server/index.js",
     "test:api": "node server/tests/api-test.mjs",
     "db:check": "node --no-warnings server/scripts/db-check.mjs",
-    "db:reset": "node --no-warnings server/scripts/db-reset.mjs"
+    "db:reset": "node --no-warnings server/scripts/db-reset.mjs",
+    "prepare:deploy": "node --no-warnings server/scripts/prepare-deploy.mjs",
+    "push:github": "node --no-warnings server/scripts/push-github.mjs"
   },
   "keywords": [
     "dashboard",
