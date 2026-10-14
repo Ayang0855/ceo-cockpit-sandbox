@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { NavLink, Link, useNavigate, Outlet } from "react-router-dom"
-import { api, clearAuth, getToken, getUser, isApiAvailable, probeApi, setUser } from "../../lib/api.js"
+import { api, clearAuth, getToken, getUser, isApiAvailable, probeApi, getApiBase, setUser } from "../../lib/api.js"
 import { Field } from "./common.jsx"
 
 // ---------- 全局提示 ----------
@@ -60,6 +60,26 @@ export default function ConsoleLayout() {
     setUser(d.user)
     return d
   }, [])
+
+  const retry = useCallback(async () => {
+    setErr("")
+    setReady(false)
+    const okApi = await probeApi()
+    setApiOk(okApi)
+    if (!okApi) { setReady(true); return }
+    if (!getToken()) { nav("/login", { replace: true, state: { from: "/console" } }); return }
+    try {
+      await loadMe()
+    } catch (e) {
+      setErr(e.message)
+      if ([40100, 40101, 40102].includes(e.code)) {
+        clearAuth()
+        nav("/login", { replace: true, state: { from: "/console" } })
+      }
+    } finally {
+      setReady(true)
+    }
+  }, [nav, loadMe])
 
   useEffect(() => {
     let alive = true
@@ -149,9 +169,22 @@ export default function ConsoleLayout() {
 
         <main className="console-main">
           {!apiOk && (
-            <div className="c-hint-bar">
-              未检测到后端服务，控制台不可用。启动后端：<code>npm run server</code>
-              （默认 http://localhost:8787；若端口被其他项目占用，会自动顺延到 8899/8900 等，以启动日志为准）
+            <div className="c-hint-bar err">
+              <b>未检测到后端服务，控制台不可用。</b>
+              <div className="c-hint-body">
+                本页面来自 <code>{window.location.origin}</code>
+                {getApiBase() ? <>，已尝试的后端地址：<code>{getApiBase()}</code></> : "。"}
+                {" "}请在本机启动后端：<code>npm run server</code>
+                （默认 8787；若端口被其他项目占用会自动顺延到 8899/8900，以启动日志为准）。
+                若前端部署在 GitHub Pages 等静态托管，页面会通过 http://localhost:8787 直连本机后端，
+                需保证本机后端已启动且该站点可访问本机端口。
+              </div>
+              <div className="c-hint-acts">
+                <button className="c-btn sm primary" onClick={retry}>重新检测</button>
+                <button className="c-btn sm" onClick={() => window.open("http://localhost:8787/", "_blank")}>
+                  打开本机后端入口
+                </button>
+              </div>
             </div>
           )}
           {err && apiOk && <div className="c-hint-bar err">接口调用异常：{err}</div>}
@@ -161,9 +194,8 @@ export default function ConsoleLayout() {
               <button className="c-btn sm" style={{ marginLeft: 8 }} onClick={() => setPwdOpen(true)}>立即修改</button>
             </div>
           )}
-          {!ready && <div className="c-empty">正在校验登录态…</div>}
           {ready && apiOk && <Outlet context={{ me, perms, apiOk, reloadMe: loadMe }} />}
-          {ready && !apiOk && <div className="c-empty">后端未就绪，无法加载控制台数据。</div>}
+          {!ready && apiOk && <div className="c-empty">正在校验登录态…</div>}
         </main>
 
         {pwdOpen && (

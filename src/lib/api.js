@@ -20,6 +20,68 @@ let apiAvailable = null
 const availableListeners = new Set()
 export const isApiAvailable = () => apiAvailable === true
 
+// ------------------------------------------------------------
+// 后端地址解析
+//   控制台与后端可能不同源（例如前端跑在 GitHub Pages、后端跑在本机 8787），
+//   因此不再写死同源相对路径，而是按候选顺序逐个探测：
+//     1) ?api=<url> 显式指定   2) 上次探测成功的地址（localStorage）
+//     3) 同源（单端口发布 / 开发态 Vite 代理，优先级最高、无跨域）
+//     4) 当前主机名:8787（局域网 IP 访问）   5) localhost / 127.0.0.1:8787
+//   localhost 属「可信来源」，浏览器允许 https 页面请求 http://localhost。
+// ------------------------------------------------------------
+const API_BASE_KEY = "ceo-cockpit-api-base"
+let apiBase = null
+
+function candidateBases() {
+  const list = []
+  const qs = new URLSearchParams(location.search)
+  const override = qs.get("api")
+  if (override) list.push(override.replace(/\/+$/, ""))
+  // 同源优先：单端口发布 / 开发态 Vite 代理时天然可用，且无跨域开销
+  list.push("")
+  try {
+    const saved = localStorage.getItem(API_BASE_KEY)
+    if (saved) list.push(saved.replace(/\/+$/, ""))
+  } catch { /* 忽略 */ }
+
+  // 本机后端：后端启动端口顺延顺序为 8787 → 8899 → 8900 → …
+  const PORTS = [8787, 8899, 8900]
+  const host = location.hostname
+  const hosts = []
+  if (host && host !== "localhost" && host !== "127.0.0.1") hosts.push(host) // 局域网 IP 访问
+  hosts.push("localhost", "127.0.0.1")
+  for (const h of hosts) for (const p of PORTS) list.push(`http://${h}:${p}`)
+
+  const seen = new Set()
+  return list.filter((b) => {
+    const k = b || "__same_origin__"
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+}
+
+async function probeBase(base, timeoutMs = 1500) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const r = await fetch(`${base}/api/v1/monitor/health`, { cache: "no-store", signal: ctrl.signal })
+    if (!r.ok) return false
+    const j = await r.json().catch(() => null)
+    return j?.code === 0
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** 请求前确保已解析出可用地址（首次请求会先探测一次） */
+async function ensureBase() {
+  if (apiBase === null && apiAvailable !== false) await probeApi()
+  return apiBase ?? ""
+}
+
 /** 订阅可用性翻转（false→true 或 true→false），返回取消订阅函数 */
 export function onApiAvailabilityChange(cb) {
   availableListeners.add(cb)
@@ -33,13 +95,37 @@ function setAvailability(v) {
 }
 
 export async function probeApi() {
-  try {
-    const r = await fetch("/api/v1/monitor/health", { cache: "no-store" })
-    setAvailability(r.ok)
-  } catch {
-    setAvailability(false)
+  // 已解析出的地址仍然可用则直接复用，避免每次路由切换都重新探测
+  if (apiBase !== null) {
+    if (await probeBase(apiBase)) { setAvailability(true); return true }
+    apiBase = null
   }
-  return apiAvailable
+  for (const base of candidateBases()) {
+    if (await probeBase(base)) {
+      apiBase = base
+      // 同源（base 为空）无需持久化，下次照样是同源优先
+      try {
+        if (base) localStorage.setItem(API_BASE_KEY, base)
+        else localStorage.removeItem(API_BASE_KEY)
+      } catch { /* 隐私模式忽略 */ }
+      setAvailability(true)
+      return true
+    }
+  }
+  setAvailability(false)
+  return false
+}
+
+/** 供 UI 展示当前实际使用的后端地址 */
+export const getApiBase = () => apiBase
+/** 用户手动指定后端地址（写入后立即重探） */
+export function setApiBase(base) {
+  apiBase = base === null ? null : String(base).replace(/\/+$/, "")
+  try {
+    if (apiBase === null) localStorage.removeItem(API_BASE_KEY)
+    else localStorage.setItem(API_BASE_KEY, apiBase)
+  } catch { /* 忽略 */ }
+  return probeApi()
 }
 
 export class ApiError extends Error {
@@ -52,25 +138,37 @@ export class ApiError extends Error {
 }
 
 async function request(method, path, { body, params, raw } = {}) {
-  let url = `/api/v1${path}`
+  let base = await ensureBase()
+  let qsSuffix = ""
   if (params) {
     const qs = new URLSearchParams()
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== "") qs.append(k, v)
     })
     const s = qs.toString()
-    if (s) url += `?${s}`
+    if (s) qsSuffix = `?${s}`
   }
+  let url = `${base}/api/v1${path}${qsSuffix}`
   const headers = { "Content-Type": "application/json" }
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
+  const init = { method, headers, body: body ? JSON.stringify(body) : undefined, cache: "no-store" }
 
   let res
   try {
-    res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined, cache: "no-store" })
-  } catch (e) {
-    setAvailability(false)
-    throw new ApiError(-1, "无法连接后端服务（已切换为演示模式）", null, null)
+    res = await fetch(url, init)
+  } catch {
+    // 网络层失败：后端可能刚被重启并顺延到其他端口，清缓存重探一次再重试
+    apiBase = null
+    if (await probeApi()) {
+      base = apiBase ?? ""
+      url = `${base}/api/v1${path}${qsSuffix}`
+      try { res = await fetch(url, init) } catch { res = undefined }
+    }
+    if (!res) {
+      setAvailability(false)
+      throw new ApiError(-1, "无法连接后端服务（已切换为演示模式）", null, null)
+    }
   }
   setAvailability(true)
 
