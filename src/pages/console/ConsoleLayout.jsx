@@ -85,7 +85,9 @@ export default function ConsoleLayout() {
     return () => { alive = false }
   }, [nav, loadMe])
 
+  // 权限判定：me 未加载完成时不显示「受限」，避免加载瞬间/后端未就绪时误以为控制台坏了
   const perms = useMemo(() => new Set(me?.permissionCodes || []), [me])
+  const permsReady = !!me
 
   const logout = async () => {
     try { await api.logout() } catch { /* 网络异常也允许本地登出 */ }
@@ -120,7 +122,7 @@ export default function ConsoleLayout() {
               <div className="side-group">{g.group}</div>
               <nav className="side-nav">
                 {g.items.map((it) => {
-                  const allowed = !it.perm || perms.has(it.perm)
+                  const allowed = !permsReady ? true : (!it.perm || perms.has(it.perm))
                   return allowed ? (
                     <NavLink key={it.to} to={it.to} end={it.end}
                       className={({ isActive }) => (isActive ? "on" : "")}>
@@ -148,7 +150,8 @@ export default function ConsoleLayout() {
         <main className="console-main">
           {!apiOk && (
             <div className="c-hint-bar">
-              未检测到后端服务，控制台不可用。启动后端：<code>npm run server</code>（默认 http://localhost:8787）
+              未检测到后端服务，控制台不可用。启动后端：<code>npm run server</code>
+              （默认 http://localhost:8787；若端口被其他项目占用，会自动顺延到 8899/8900 等，以启动日志为准）
             </div>
           )}
           {err && apiOk && <div className="c-hint-bar err">接口调用异常：{err}</div>}

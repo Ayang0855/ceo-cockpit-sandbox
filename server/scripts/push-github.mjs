@@ -18,6 +18,8 @@
 //          并对瞬时网络错误做重试，避免授权等待期间被抖动打断。
 // ============================================================
 import { execFileSync } from "node:child_process"
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -131,7 +133,28 @@ async function deviceFlow() {
 }
 
 let token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || argOf("token")
-if (!token) token = await deviceFlow()
+
+// 令牌持久化：设备授权一次后存到本机（0600，仓库外），后续推送全自动
+const TOKEN_FILE = join(homedir(), ".workbuddy", "github-token")
+if (!token && existsSync(TOKEN_FILE)) {
+  const saved = readFileSync(TOKEN_FILE, "utf8").trim()
+  if (saved) {
+    token = saved
+    console.log("[push:github] 使用本机已保存的令牌（~/.workbuddy/github-token）")
+  }
+}
+
+if (!token) {
+  token = await deviceFlow()
+  try {
+    mkdirSync(dirname(TOKEN_FILE), { recursive: true })
+    writeFileSync(TOKEN_FILE, token + "\n", { mode: 0o600 })
+    chmodSync(TOKEN_FILE, 0o600)
+    console.log(`[push:github] 令牌已保存到 ${TOKEN_FILE}（0600，仅本机可用；删除该文件即回到每次授权模式）`)
+  } catch (e) {
+    console.log(`[push:github] 令牌保存失败（不影响本次推送）：${e.message}`)
+  }
+}
 
 // ---------- 2. 校验身份 ----------
 const authHeaders = [`Authorization: Bearer ${token}`, "X-GitHub-Api-Version: 2022-11-28"]

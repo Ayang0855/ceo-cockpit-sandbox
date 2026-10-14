@@ -84,12 +84,39 @@ export function createApp() {
 
 const isMain = process.argv[1] && process.argv[1].endsWith("index.js")
 if (isMain) {
-  const port = Number(process.env.PORT) || 8787
   const host = process.env.HOST || "0.0.0.0"
-  createApp().listen(port, host, () => {
-    startMetricsSampler()
-    console.log(`[ceo-cockpit] API + Web 已启动: http://${host}:${port}`)
-    console.log(`[ceo-cockpit] 接口清单: http://${host}:${port}/api/v1/meta/endpoints`)
-    console.log(`[ceo-cockpit] 默认管理员: admin / admin123456（首次登录需改密）`)
-  })
+  const explicit = Number(process.env.PORT) || null
+  // 未显式指定端口时：默认 8787，若被占用则依次顺延（同机多个项目默认都爱用 8787）
+  const ports = explicit ? [explicit] : [8787, 8899, 8900, 8901, 8902]
+  const app = createApp()
+
+  const tryListen = (i) => {
+    if (i >= ports.length) {
+      console.error(`[ceo-cockpit] 端口全部被占用：${ports.join(", ")}`)
+      console.error("[ceo-cockpit] 请用 PORT=<空闲端口> npm start 指定其他端口")
+      process.exit(1)
+    }
+    const port = ports[i]
+    const srv = app.listen(port, host)
+    srv.once("listening", () => {
+      if (i > 0) {
+        console.log(`[ceo-cockpit] ⚠ 默认端口 ${ports[0]} 已被其他进程占用，已自动顺延到 ${port}`)
+      }
+      startMetricsSampler()
+      console.log(`[ceo-cockpit] API + Web 已启动: http://localhost:${port}`)
+      console.log(`[ceo-cockpit] 控制台入口: http://localhost:${port}/#/console`)
+      console.log(`[ceo-cockpit] 接口清单: http://localhost:${port}/api/v1/meta/endpoints`)
+      console.log(`[ceo-cockpit] 默认管理员: admin / admin123456（首次登录需改密）`)
+    })
+    srv.once("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        console.log(`[ceo-cockpit] 端口 ${port} 被占用，尝试下一个…`)
+        tryListen(i + 1)
+        return
+      }
+      console.error(`[ceo-cockpit] 启动失败：${err.message}`)
+      process.exit(1)
+    })
+  }
+  tryListen(0)
 }
