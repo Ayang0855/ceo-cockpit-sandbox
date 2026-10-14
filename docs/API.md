@@ -402,7 +402,7 @@ HTTP 映射：`400xx→400`、`401xx→401`、`403xx→403`、`404xx→404`、`4
 
 ```bash
 npm run server          # 启动 API + Web（默认 :8787）
-npm run test:api        # 181 项断言联调（幂等，跑完数据回到种子状态）
+npm run test:api        # 182 项断言联调（默认基线+一致性；--seed-strict 校验严格种子）
 npm run db:check        # 数据体检：当前库 vs 代码种子，定位「改了代码库没跟上」的漂移
 npm run db:reset        # 备份并按当前代码种子重建数据库
 curl localhost:8787/api/v1/meta/endpoints   # 接口清单

@@ -204,10 +204,10 @@ const pushUrl = `https://x-access-token:${token}@github.com/${owner}/${repo}.git
 console.log(`[push:github] 推送 ${branch} → ${owner}/${repo} …`)
 const pushEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "/usr/bin/true" }
 try {
-  execFileSync("git", ["push", pushUrl, `${branch}:${branch}`], { cwd: ROOT, stdio: "inherit", env: pushEnv })
+  execFileSync("git", ["-c", "http.version=HTTP/1.1", "push", pushUrl, `${branch}:${branch}`], { cwd: ROOT, stdio: "inherit", env: pushEnv })
 } catch {
   console.log("[push:github] 常规推送失败（远端已有不同历史），改用 --force-with-lease 覆盖 …")
-  execFileSync("git", ["push", "--force-with-lease", pushUrl, `${branch}:${branch}`], { cwd: ROOT, stdio: "inherit", env: pushEnv })
+  execFileSync("git", ["-c", "http.version=HTTP/1.1", "push", "--force-with-lease", pushUrl, `${branch}:${branch}`], { cwd: ROOT, stdio: "inherit", env: pushEnv })
 }
 
 // ---------- 5. 确保 origin 指向干净地址（不含令牌） ----------

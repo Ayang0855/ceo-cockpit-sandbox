@@ -35,7 +35,7 @@ npm run start:prod   # 构建前端 + 启动后端，二者同源
 ### 自检
 
 ```bash
-npm run test:api     # 181 项接口联调断言（幂等，跑完数据回到种子状态）
+npm run test:api     # 182 项接口联调断言（默认=基线+跨接口一致性；--seed-strict 校验严格种子）
 npm run db:check     # 数据体检：当前库 vs 代码种子，定位「改了代码、库没跟上」的漂移
 curl localhost:8787/api/v1/meta/endpoints   # 查看完整接口清单
 ```
@@ -150,7 +150,7 @@ ceo-cockpit/
 | `npm run preview` | 预览构建产物（纯静态，另需单独启动后端） |
 | `npm run server` / `npm start` | 启动后端 API + 同源托管已有构建产物 |
 | `npm run start:prod` | `build` + `server`，一条命令跑起完整生产形态 |
-| `npm run test:api` | 181 项接口联调断言（需后端已启动） |
+| `npm run test:api` | 182 项接口联调断言（需后端已启动；业务数据只做基线与一致性校验） |
 | `npm run db:check` | 数据体检：对比当前库与代码种子，列出漂移字段（退出码 1 = 有漂移） |
 | `npm run db:reset` | 备份当前库到 `server/data/backup-<时间戳>.db` 后按当前种子重建（保留最近 5 份备份） |
 | `npm run prepare:deploy` | 生成「发布就绪」目录 `../ceo-cockpit-deploy`（前端产物改名为 `public-site/`、只带运行时依赖、JWT 密钥固定），用于单端口公网发布 |

@@ -15,6 +15,16 @@ function chk(name, expected, actual) {
   else { fail++; failures.push({ name, expected, actual }); console.log(`  ❌ ${name}  期望 ${expected} 实得 ${actual}`) }
 }
 
+// 种子基线断言。
+// 业务数据允许通过控制台「数据管理」被人工增删改，因此默认只校验
+// 「不少于种子基线」（并配合跨接口一致性断言）；加 --seed-strict 时
+// 恢复与种子逐值相等，用于 npm run db:reset 之后做严格回归。
+const SEED_STRICT = process.argv.includes("--seed-strict")
+function chkCount(name, seed, actual) {
+  if (SEED_STRICT) return chk(`${name}（严格种子）`, seed, actual)
+  chk(`${name}（≥种子 ${seed}）`, true, Number(actual) >= seed)
+}
+
 async function call(method, path, { body, token, query } = {}) {
   let url = BASE + path
   if (query) {
@@ -133,13 +143,19 @@ async function main() {
   const res = await data("GET", "/data", { token: adminToken })
   chk("资源种类=4", 4, res?.total)
   chk("资源目录含字段 Schema", true, Array.isArray(res?.list?.[0]?.fields) && !!res?.list?.[0]?.filters)
-  chk("部门数据量=7", 7, (await data("GET", "/data/departments", { token: adminToken, query: { pageSize: 50 } }))?.total)
-  chk("沙盘单位=9", 9, (await data("GET", "/data/units", { token: adminToken, query: { pageSize: 50 } }))?.total)
-  chk("客户=30", 30, (await data("GET", "/data/customers", { token: adminToken, query: { pageSize: 50 } }))?.total)
-  chk("报告=2", 2, (await data("GET", "/data/reports", { token: adminToken, query: { pageSize: 50 } }))?.total)
+  const deptAll = await data("GET", "/data/departments", { token: adminToken, query: { pageSize: 100 } })
+  chkCount("部门数据量", 7, deptAll?.total)
+  chk("部门列表长度=total", deptAll?.total, deptAll?.list?.length)
+  chkCount("沙盘单位", 9, (await data("GET", "/data/units", { token: adminToken, query: { pageSize: 50 } }))?.total)
+  chkCount("客户", 30, (await data("GET", "/data/customers", { token: adminToken, query: { pageSize: 50 } }))?.total)
+  chkCount("报告", 2, (await data("GET", "/data/reports", { token: adminToken, query: { pageSize: 50 } }))?.total)
   chk("中文关键字筛选", true, (await data("GET", "/data/departments", { token: adminToken, query: { keyword: "客户" } }))?.total > 0)
-  chk("状态筛选", true, (await data("GET", "/data/departments", { token: adminToken, query: { status: "online" } }))?.total === 5)
-  chk("布尔字段筛选(已接入=4)", 4, (await data("GET", "/data/departments", { token: adminToken, query: { mcp: "true" } }))?.total)
+  const onlineSeed = (deptAll?.list || []).filter((d) => d.status === "online").length
+  chk("状态筛选与全量口径一致", onlineSeed,
+    (await data("GET", "/data/departments", { token: adminToken, query: { status: "online", pageSize: 100 } }))?.total)
+  const mcpSeed = (deptAll?.list || []).filter((d) => d.mcp === true).length
+  chk("布尔字段筛选与全量口径一致", mcpSeed,
+    (await data("GET", "/data/departments", { token: adminToken, query: { mcp: "true", pageSize: 100 } }))?.total)
   chk("排序参数生效", true, typeof (await data("GET", "/data/departments", { token: adminToken, query: { sort: "members", order: "desc" } }))?.list?.[0]?.members === "number")
   chk("非法排序字段回落默认", 0, await code("GET", "/data/departments", { token: adminToken, query: { sort: "1; DROP TABLE users" } }))
   chk("不支持的资源", 40400, await code("GET", "/data/unknown_res", { token: adminToken }))
@@ -182,7 +198,11 @@ async function main() {
   chk("服务信息完整", true, !!ov?.service?.name && !!ov?.service?.node && typeof ov?.service?.uptimeSec === "number")
   chk("运行时指标完整", true, typeof ov?.runtime?.cpuPct === "number" && typeof ov?.runtime?.memRssMB === "number")
   chk("流量指标完整", true, typeof ov?.traffic?.totalRequests === "number" && typeof ov?.traffic?.p95Ms === "number")
-  chk("业务指标完整", true, ov?.business?.users === 5 && ov?.business?.departments === 7)
+  const liveUsers = (await data("GET", "/users", { token: adminToken, query: { pageSize: 100 } }))?.total
+  const liveDepts = (await data("GET", "/data/departments", { token: adminToken, query: { pageSize: 100 } }))?.total
+  chk("业务指标完整且与实时数据一致", true,
+    typeof ov?.business?.users === "number" && ov?.business?.users === liveUsers &&
+    typeof ov?.business?.departments === "number" && ov?.business?.departments === liveDepts)
   chk("接口级统计", 0, await code("GET", "/monitor/endpoints", { token: adminToken }))
   chk("接口统计含错误率", true, typeof (await data("GET", "/monitor/endpoints", { token: adminToken }))?.list?.[0]?.errorRatePct === "number")
   chk("时序指标", 0, await code("GET", "/monitor/series", { token: adminToken, query: { hours: 24 } }))
@@ -242,12 +262,13 @@ async function main() {
   chk("回款实际取自配置项", 775963, ck?.metrics?.cashActual)
   chk("缺口 = 目标 - 实际", 124037, ck?.metrics?.gap)
   chk("完成率按同口径计算", 86.22, ck?.metrics?.completionRate)
-  chk("客户总数与数据管理一致", 30, ck?.counts?.customers)
-  chk("报告总数与数据管理一致", 2, ck?.counts?.reports)
-  chk("部门总数与数据管理一致", 7, ck?.counts?.departments)
-  chk("在线部门数", 5, ck?.counts?.onlineDepartments)
-  chk("离线部门数", 2, ck?.counts?.offlineDepartments)
-  chk("沙盘单位数", 9, ck?.counts?.units)
+  chkCount("客户总数", 30, ck?.counts?.customers)
+  chkCount("报告总数", 2, ck?.counts?.reports)
+  chk("部门总数与数据管理一致", deptAll?.total, ck?.counts?.departments)
+  chk("在线部门数与列表一致", (ck?.departments || []).filter((d) => d.online).length, ck?.counts?.onlineDepartments)
+  chk("在线+离线=部门总数", ck?.counts?.departments,
+    (ck?.counts?.onlineDepartments ?? 0) + (ck?.counts?.offlineDepartments ?? 0))
+  chkCount("沙盘单位数", 9, ck?.counts?.units)
   chk("部门列表长度=计数", ck?.counts?.departments, ck?.departments?.length)
   chk("单位列表长度=计数", ck?.counts?.units, ck?.units?.length)
   chk("客户列表长度=计数", ck?.counts?.customers, ck?.customers?.length)
